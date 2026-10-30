@@ -1,0 +1,81 @@
+# electron-builder 打包配置
+# 目标：基于 electron-vite 的构建产物（dist/main、dist/preload、dist/renderer），
+# 产出 Windows / macOS / Linux 三平台安装包。
+# 说明：
+# - 打包流程经 pnpm 运行：先 `pnpm build`（electron-vite build 产出 dist/**），
+#   再 `electron-builder`（读取本配置打包）。对应 package.json 的 `dist` 脚本。
+# - 跨平台完整打包需在对应操作系统/工具链上执行（如 mac 的 dmg 需在 macOS），
+#   本配置仅声明三平台目标，实际产物由各自平台的 CI/本地环境生成。
+
+# 应用唯一标识（反向域名），用于系统注册与自动更新等场景
+appId: com.llmswitch.config-manager
+# 应用展示名称（安装包标题、桌面快捷方式等）
+productName: LLM 配置管理器
+# 版权信息（显示于安装包与可执行文件属性）
+copyright: Copyright © 2025 LLM 配置管理器
+
+directories:
+  # 安装包与打包产物的输出目录（已在 .gitignore 忽略）
+  output: release
+  # 构建资源目录（存放图标、安装器脚本等）；缺省图标时回退 Electron 默认图标
+  buildResources: build
+
+# 需要被打进安装包的文件：electron-vite 的构建产物与运行所需的 package.json。
+# node_modules 由 electron-builder 依据 package.json 的 dependencies 自动处理。
+files:
+  - dist/**
+  - package.json
+
+# 产物文件名模板：使用稳定的英文标识 + 版本 + 架构，避免中文/空格带来的分发问题。
+# productName 为中文（用于安装器标题与快捷方式），但下载文件名统一为英文更通用。
+artifactName: LLMConfigManager-${version}-${os}-${arch}.${ext}
+
+# Windows 平台：使用 NSIS 生成安装器
+win:
+  # 应用/安装器图标（electron-builder 会从 1024x1024 PNG 自动派生多尺寸 ICO）
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # 可执行文件名（不含扩展名）
+  executableName: llm-config-manager
+
+# NSIS 安装器选项
+nsis:
+  # 允许用户自定义安装目录
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  # 创建桌面与开始菜单快捷方式
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  # 安装器显示语言与名称
+  shortcutName: LLM 配置管理器
+
+# macOS 平台：生成 dmg 磁盘映像
+mac:
+  # 应用图标（electron-builder 会从 1024x1024 PNG 自动生成 icns）
+  icon: build/icon.png
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  # 应用分类（App Store 规范，普通 dmg 分发仅作元数据）
+  category: public.app-category.developer-tools
+  # 不在打包阶段触发签名/公证（避免未配置证书时失败）
+  identity: null
+
+# Linux 平台：生成 AppImage 与 deb 两种分发格式
+linux:
+  # 应用图标（electron-builder 直接使用 PNG）
+  icon: build/icon.png
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  # freedesktop 应用分类
+  category: Development

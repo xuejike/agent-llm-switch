@@ -1,0 +1,11 @@
+{
+  // 共享类型子项目：被主进程与渲染进程共同引用，不依赖 Node/DOM 专属 API
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": ".",
+    "outDir": "../../dist/shared",
+    "types": []
+  },
+  "include": ["."]
+}

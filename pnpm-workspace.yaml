@@ -1,0 +1,5 @@
+# pnpm workspace 声明
+# 本项目采用 src 分层（src/main 主进程、src/renderer 渲染进程、src/preload 预加载、src/shared 共享类型）
+# 单包结构，workspace 预留给后续可能拆分的子包（packages/*）。
+packages:
+  - "packages/*"

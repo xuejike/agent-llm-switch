@@ -1,0 +1,13 @@
+{
+  // 主进程子项目：Node 环境，可访问文件系统、Electron 主进程 API
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": ".",
+    "outDir": "../../dist/main",
+    "lib": ["ES2022"],
+    "types": ["node"]
+  },
+  "references": [{ "path": "../shared" }],
+  "include": ["."]
+}

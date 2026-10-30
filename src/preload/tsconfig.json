@@ -1,0 +1,13 @@
+{
+  // 预加载脚本子项目：运行在隔离的预加载环境，可访问受限 Electron API
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": ".",
+    "outDir": "../../dist/preload",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"]
+  },
+  "references": [{ "path": "../shared" }],
+  "include": ["."]
+}

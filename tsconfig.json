@@ -1,0 +1,10 @@
+{
+  // 根 TypeScript 配置：以项目引用方式聚合各子项目（strict 模式在 tsconfig.base.json 中开启）
+  "files": [],
+  "references": [
+    { "path": "./src/shared" },
+    { "path": "./src/main" },
+    { "path": "./src/preload" },
+    { "path": "./src/renderer" }
+  ]
+}

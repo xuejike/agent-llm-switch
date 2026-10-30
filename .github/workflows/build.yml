@@ -1,0 +1,175 @@
+# =============================================================================
+# GitHub Actions —— LLM 配置管理器 跨平台构建与发布
+#
+# 产出：Windows (NSIS .exe) / macOS (.dmg, x64+arm64) / Linux (AppImage + .deb)。
+#
+# 设计要点：
+# - 用 GitHub 托管 runner 的三平台矩阵（windows / macos / ubuntu）原生构建，
+#   规避 electron-builder 的跨平台硬约束（dmg 只能在 macOS 构建等）。
+# - 先在 Linux 跑一次质量门禁（lint + typecheck + 单元测试），通过后再并行打包。
+# - 缓存 pnpm store 与 Electron 下载，加速重复构建。
+# - push tag（v*）时：构建三平台产物并自动创建 GitHub Release、上传安装包。
+# - 手动触发（workflow_dispatch）与对默认分支的 push / PR 也会构建（不发布）。
+# =============================================================================
+name: build
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch: {}
+
+# 同一 ref 的新推送取消仍在进行的旧运行，节省额度
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PNPM_VERSION: '10.24.0'
+  NODE_VERSION: '20'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 质量门禁：lint + typecheck + 单元测试（仅 Linux 跑一次）
+  # ---------------------------------------------------------------------------
+  quality:
+    name: Lint / Typecheck / Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+  # ---------------------------------------------------------------------------
+  # 三平台并行打包
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build (${{ matrix.os }})
+    needs: quality
+    strategy:
+      # 某一平台失败不影响其它平台继续产出
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            # 收集 Windows 产物
+            artifact_glob: |
+              release/*.exe
+              release/*.blockmap
+          - os: macos-latest
+            platform: mac
+            artifact_glob: |
+              release/*.dmg
+              release/*.blockmap
+          - os: ubuntu-latest
+            platform: linux
+            artifact_glob: |
+              release/*.AppImage
+              release/*.deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      # 缓存 Electron 二进制下载，避免每次重新拉取 ~100MB
+      - name: Cache Electron binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build installer (${{ matrix.platform }})
+        run: pnpm run dist:${{ matrix.platform }}
+        env:
+          # electron-builder 用此 token 可自动发布；此处仅本地产出 artifacts，留给 release 作业
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 如遇 Electron 下载被墙，可在仓库 Variables 设置 ELECTRON_MIRROR 后取消下一行注释
+          # ELECTRON_MIRROR: ${{ vars.ELECTRON_MIRROR }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.platform }}
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: error
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # 发布：仅在 push tag（v*）时，收集三平台产物并创建 GitHub Release
+  # ---------------------------------------------------------------------------
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all installers
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+          # 合并所有 matrix 作业上传的产物
+          pattern: installers-*
+          merge-multiple: true
+
+      - name: List downloaded files
+        run: ls -R dist-artifacts
+
+      - name: Create Release and upload installers
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: LLM Config Manager ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist-artifacts/**/*.exe
+            dist-artifacts/**/*.dmg
+            dist-artifacts/**/*.AppImage
+            dist-artifacts/**/*.deb
+            dist-artifacts/**/*.blockmap

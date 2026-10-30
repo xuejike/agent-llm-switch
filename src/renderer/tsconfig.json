@@ -1,0 +1,14 @@
+{
+  // 渲染进程子项目：浏览器环境 + React JSX，仅负责 UI
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": ".",
+    "outDir": "../../dist/renderer",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": []
+  },
+  "references": [{ "path": "../shared" }],
+  "include": ["."]
+}

@@ -1,0 +1,31 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+out/
+release/
+
+# 日志
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# 编辑器与系统文件
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+
+# 环境变量
+.env
+.env.*
+
+# Playwright E2E（GUI 自动化测试）产物
+e2e/.report/
+e2e/.artifacts/
+e2e/.*.txt
+playwright-report/
+test-results/
+
+# electron-builder 图标缓存（build/icon.png、build/icon.svg 需提交，其余忽略）
+build/icon-cache/
