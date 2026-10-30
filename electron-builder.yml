@@ -70,6 +70,11 @@ mac:
 linux:
   # 应用图标（electron-builder 直接使用 PNG）
   icon: build/icon.png
+  # deb 包必需的维护者（否则 fpm 打 deb 会报「需要 maintainer」）；
+  # 显式声明优先于从 package.json author 推断，避免 CI 上因缺失而失败。
+  maintainer: jike.xue <245674286@qq.com>
+  # 窗口关联用的 .desktop 名称（消除构建告警，桌面环境可正确关联运行窗口）
+  desktopName: llm-config-manager.desktop
   target:
     - target: AppImage
       arch:
